@@ -4,9 +4,25 @@ import re
 import fitz  # PyMuPDF
 from bs4 import BeautifulSoup
 
-METADATA_PATH = "data/metadata.csv"
-PROCESSED_BASE = "data/processed"
+import hashlib
+import csv
+from datetime import datetime, timezone
 
+METADATA_RAW_PATH = "data/metadata_raw.csv"
+PROCESSED_BASE = "data/processed"
+METADATA_PROCESSED_PATH = "data/metadata_processed.csv"
+
+def save_metadata(row):
+    file_exists = os.path.exists(METADATA_PROCESSED_PATH)
+
+    with open(METADATA_PROCESSED_PATH, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["id", "source_path", "target_path", "timestamp", "source_hash", "target_hash"]
+        )
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
 
 # Helper: cleaning and normalization
 def clean_text(text: str) -> str:
@@ -72,12 +88,13 @@ def extract_file(path: str) -> str:
 def run_extraction():
     os.makedirs(PROCESSED_BASE, exist_ok=True)
 
-    with open(METADATA_PATH, newline="", encoding="utf-8") as f:
+    with open(METADATA_RAW_PATH, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
 
         for row in reader:
             raw_path = row["file_path"]
             file_id = row["id"]
+            source_hash = row["hash"]
             output_path = os.path.join(PROCESSED_BASE, file_id + ".txt")
 
             if os.path.exists(output_path):
@@ -89,6 +106,16 @@ def run_extraction():
 
                 with open(output_path, "w", encoding="utf-8") as out:
                     out.write(text)
+
+                # ["id", "source_path", "target_path", "timestamp", "source_hash", "target_hash"]
+                save_metadata({
+                    "id": file_id,
+                    "source_path": raw_path,
+                    "target_path": output_path,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "source_hash": source_hash,
+                    "target_hash": hashlib.sha256(text.encode("utf-8")).hexdigest()
+                })
 
                 print(f"[ETL] Processed → {output_path}")
 
