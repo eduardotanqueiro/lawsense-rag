@@ -7,20 +7,17 @@ from bs4 import BeautifulSoup
 import argparse
 from urllib.parse import urlsplit, quote
 
-METADATA_PATH = "data/metadata.csv"
-
-# os.makedirs("data", exist_ok=True)
-# os.makedirs("data/raw", exist_ok=True)
+METADATA_PATH = "data/metadata_raw.csv"
 
 
+# Utils
 
-# --------------------------------------------------------
-# Utility functions
-# --------------------------------------------------------
-
-def sha256_file(path):
-    with open(path, "rb") as f:
-        return hashlib.sha256(f.read()).hexdigest()
+# def sha256_file(path):
+#     with open(path, "rb") as f:
+#         return hashlib.sha256(f.read()).hexdigest()
+    
+def sha256_content(content):
+    return hashlib.sha256(content).hexdigest()
 
 
 def load_existing_hashes():
@@ -49,9 +46,7 @@ def save_file(file_path, content):
         f.write(content)
 
 
-# --------------------------------------------------------
-# 1. DGSI
-# --------------------------------------------------------
+# Funcs
 
 def fetch_dgsi_latest(limit=40, url="https://www.dgsi.pt/jstj.nsf/"):
     print("[DGSI] Checking latest rulings...")
@@ -73,15 +68,15 @@ def fetch_dgsi_latest(limit=40, url="https://www.dgsi.pt/jstj.nsf/"):
         doc_url = "https://www.dgsi.pt" + href
         doc_html = requests.get(doc_url).text.encode("utf-8")
 
-        # use hash if uniqueness is more important
+        # uniqueness is more important
         file_name = hashlib.sha256(href.encode('utf-8')).hexdigest() + ".html"
-
         file_path = f"data/raw/dgsi/{file_name}"
 
-        save_file(file_path, doc_html)
+        h = sha256_content(doc_html)
 
-        h = sha256_file(file_path)
         if h not in existing:
+            save_file(file_path, doc_html)
+   
             new_docs += 1
             save_metadata({
                 "id": file_name,
@@ -102,11 +97,13 @@ def fetch_constituicao_latest():
     response = requests.get(url)
     file_name = "constituicao.pdf"
     file_path = f"data/raw/constituicao/{file_name}"
-    save_file(file_path, response.content)
 
-    h = sha256_file(file_path)
     existing = load_existing_hashes()
+    h = sha256_content(response.content)
+
     if h not in existing:
+        save_file(file_path, response.content)
+
         save_metadata({
             "id": file_name,
             "title": "Constituição da República Portuguesa",
@@ -118,6 +115,7 @@ def fetch_constituicao_latest():
         })
 
         return 1
+
     return 0
 
 
@@ -173,10 +171,17 @@ def fetch_tc_all(limit=40):
             file_name = hashlib.sha256(acordao_url.encode("utf-8")).hexdigest() + ".html"
             file_path = f"data/raw/tc/{file_name}"
 
-            save_file(file_path, acordao_html)
 
-            h = sha256_file(file_path)
+            h = sha256_content(acordao_html)
             if h not in existing_hashes:
+
+                if os.path.exists(file_path):
+                    # Avoid overwriting different files with same name
+                    file_name = f"{hashlib.sha256(acordao_url.encode('utf-8')).hexdigest()}_{file_name}"
+                    file_path = os.path.join("data/raw/tc", file_name)
+                
+                save_file(file_path, acordao_html)
+
                 new_docs += 1
                 save_metadata({
                     "id": file_name,
@@ -194,52 +199,90 @@ def fetch_tc_all(limit=40):
     print(f"[TC] Completed. Pages crawled: {page - 1}")
     return new_docs
 
-def fetch_tc_pdf_by_patterns(start_year=2000, end_year=None):
-    print("[TC-PDF] Fetching Tribunal Constitucional PDFs using filename patterns...")
+def fetch_tc_ebook_pdfs():
+    print("[TC-PDF] Crawling PDFs...")
 
-    if end_year is None:
-        end_year = datetime.now().year
+    base_links = ["https://www.tribunalconstitucional.pt/tc/home.html", 
+             "https://www.tribunalconstitucional.pt/tc/ebook/"]
 
-    BASE = "https://www.tribunalconstitucional.pt/tc/content/files"
+
     existing_hashes = load_existing_hashes()
     new_docs = 0
-
-    # Known PDF naming patterns used by TC
-    PATTERNS = [
-        "AcOrdaosTC{year}.pdf",
-        "Relatorio_de_Atividades_{year}.pdf",
-        "Relatorio_{year}.pdf",
-        "Relatorio_Atividades_TC_{year}.pdf",
-        "Vol_{year}.pdf",
-    ]
 
     save_dir = "data/raw/tc_pdf"
     os.makedirs(save_dir, exist_ok=True)
 
-    for year in range(start_year, end_year + 1):
-        for pattern in PATTERNS:
-            filename = pattern.format(year=year)
-            pdf_url = f"{BASE}/{year}/{filename}"
+    pdf_links = []
 
-            try:
-                r = requests.get(pdf_url, timeout=10)
-            except Exception:
+
+    for base_link in base_links:
+
+        # Fetch HTML index
+        try:
+            resp = requests.get(base_link, timeout=15)
+            resp.raise_for_status()
+        except Exception as e:
+            print(f"[TC-PDF] Failed to fetch index: {e}")
+            return 0
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Find links ending with .pdf
+        for a in soup.find_all("a", href=True):
+            href = a["href"].strip()
+
+            if href.lower().endswith(".pdf"):
+                if href.startswith("http"):
+                    pdf_url = href
+                else:
+                    pdf_url = base_link + href  # normalize relative link
+
+                label = a.text.strip() or pdf_url.split("/")[-1]
+                pdf_links.append((pdf_url, label))
+
+        print(f"[TC-PDF] Found {len(pdf_links)} PDF links")
+
+    # Deduplicate
+    seen = set()
+    pdf_links = [(u, t) for (u, t) in pdf_links if not (u in seen or seen.add(u))]
+
+    # Download and validate each PDF
+    for pdf_url, title in pdf_links:
+        try:
+            r = requests.get(pdf_url, timeout=20)
+            if r.status_code != 200:
+                print(f"[TC-PDF] Skipping (status {r.status_code}): {pdf_url}")
                 continue
 
-            # Reject bad responses
-            if r.status_code != 200 or len(r.content) < 20_000:
+            # Must be PDF
+            ctype = r.headers.get("Content-Type", "").lower()
+            if "pdf" not in ctype:
+                print(f"[TC-PDF] Skipping non-PDF: {pdf_url}")
                 continue
 
-            # Hash and save
-            local_filename = f"{year}_{filename}"
+            # Must begin with %PDF
+            if not r.content.startswith(b"%PDF"):
+                print(f"[TC-PDF] Skipping HTML disguised as PDF: {pdf_url}")
+                continue
+
+            # Basic size check
+            if len(r.content) < 20_000:
+                print(f"[TC-PDF] Skipping too-small PDF ({len(r.content)} bytes): {pdf_url}")
+                continue
+
+            # Save
+            filename = os.path.basename(urlsplit(pdf_url).path)
+            local_filename = filename
             file_path = os.path.join(save_dir, local_filename)
-            save_file(file_path, r.content)
 
-            h = sha256_file(file_path)
+            h = sha256_content(r.content)
+
             if h not in existing_hashes:
+                save_file(file_path, r.content)
+
                 save_metadata({
                     "id": local_filename,
-                    "title": filename,
+                    "title": title,
                     "source": "Tribunal Constitucional",
                     "url": pdf_url,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -247,14 +290,18 @@ def fetch_tc_pdf_by_patterns(start_year=2000, end_year=None):
                     "hash": h,
                 })
                 new_docs += 1
-                print(f"[TC-PDF] Downloaded {pdf_url}")
+                print(f"[TC-PDF] Downloaded: {pdf_url}")
 
-    print(f"[TC-PDF] Completed with {new_docs} new PDFs.")
+            else:
+                print(f"[TC-PDF] Already exists (hash match): {pdf_url}")
+
+        except Exception as e:
+            print(f"[TC-PDF] Error downloading {pdf_url}: {e}")
+
+    print(f"[TC-PDF] Completed. New PDFs added: {new_docs}")
     return new_docs
 
-# --------------------------------------------------------
-# MAIN Execution
-# --------------------------------------------------------
+
 
 def run_daily_download(limit=40):
     new_docs = 0
@@ -269,7 +316,7 @@ def run_daily_download(limit=40):
 
     new_docs += fetch_constituicao_latest()
 
-    new_docs += fetch_tc_pdf_by_patterns(start_year=2000, end_year=datetime.now().year)
+    new_docs += fetch_tc_ebook_pdfs()
 
     new_docs += fetch_tc_all(limit=limit)
 
