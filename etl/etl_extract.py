@@ -8,9 +8,9 @@ import hashlib
 import csv
 from datetime import datetime, timezone
 
-METADATA_RAW_PATH = "data/metadata_raw.csv"
-PROCESSED_BASE = "data/processed"
-METADATA_PROCESSED_PATH = "data/metadata_processed.csv"
+METADATA_RAW_PATH = os.path.join("data", "metadata_raw.csv")
+PROCESSED_BASE = os.path.join("data", "processed")
+METADATA_PROCESSED_PATH = os.path.join("data", "metadata_processed.csv")
 
 def save_metadata(row):
     file_exists = os.path.exists(METADATA_PROCESSED_PATH)
@@ -117,7 +117,7 @@ def run_extraction():
                     "target_hash": hashlib.sha256(text.encode("utf-8")).hexdigest()
                 })
 
-                print(f"[ETL] Processed → {output_path}")
+                print(f"[ETL] Processed: {output_path}")
 
             except Exception as e:
                 print(f"[ETL] Failed to process {raw_path}: {e}")

@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import argparse
 from urllib.parse import urlsplit, quote
 
-METADATA_PATH = "data/metadata_raw.csv"
+METADATA_PATH = os.path.join("data", "metadata_raw.csv")
 
 
 # Utils
@@ -70,7 +70,7 @@ def fetch_dgsi_latest(limit=40, url="https://www.dgsi.pt/jstj.nsf/"):
 
         # uniqueness is more important
         file_name = hashlib.sha256(href.encode('utf-8')).hexdigest() + ".html"
-        file_path = f"data/raw/dgsi/{file_name}"
+        file_path = os.path.join("data", "raw", "dgsi", file_name)
 
         h = sha256_content(doc_html)
 
@@ -96,7 +96,7 @@ def fetch_constituicao_latest():
     print("[Constituição] Downloading the Constitution document...")
     response = requests.get(url)
     file_name = "constituicao.pdf"
-    file_path = f"data/raw/constituicao/{file_name}"
+    file_path = os.path.join("data", "raw", "constituicao", file_name)
 
     existing = load_existing_hashes()
     h = sha256_content(response.content)
@@ -169,7 +169,7 @@ def fetch_tc_all(limit=40):
 
             # Unique filename
             file_name = hashlib.sha256(acordao_url.encode("utf-8")).hexdigest() + ".html"
-            file_path = f"data/raw/tc/{file_name}"
+            file_path = os.path.join("data", "raw", "tc", file_name)
 
 
             h = sha256_content(acordao_html)
@@ -178,7 +178,7 @@ def fetch_tc_all(limit=40):
                 if os.path.exists(file_path):
                     # Avoid overwriting different files with same name
                     file_name = f"{hashlib.sha256(acordao_url.encode('utf-8')).hexdigest()}_{file_name}"
-                    file_path = os.path.join("data/raw/tc", file_name)
+                    file_path = os.path.join("data", "raw", "tc", file_name)
                 
                 save_file(file_path, acordao_html)
 
@@ -209,7 +209,7 @@ def fetch_tc_ebook_pdfs():
     existing_hashes = load_existing_hashes()
     new_docs = 0
 
-    save_dir = "data/raw/tc_pdf"
+    save_dir = os.path.join("data", "raw", "tc_pdf")
     os.makedirs(save_dir, exist_ok=True)
 
     pdf_links = []

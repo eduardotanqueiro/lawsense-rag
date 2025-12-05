@@ -7,10 +7,10 @@ import json
 import hashlib
 import tiktoken
 
-PROCESSED_BASE = "data/processed"
-METADATA_PROCESSED_PATH = "data/metadata_processed.csv"
-OUTPUT_CHUNK_PATH = "data/chunked"
-METADATA_CHUNKED_PATH = "data"
+PROCESSED_BASE = os.path.join("data", "processed")
+METADATA_PROCESSED_PATH = os.path.join("data", "metadata_processed.csv")
+OUTPUT_CHUNK_PATH = os.path.join("data", "chunked")
+METADATA_CHUNKED_PATH = os.path.join("data")
 
 ENCODER = tiktoken.get_encoding("cl100k_base")  # OpenAI tokenizer
 
@@ -87,7 +87,7 @@ def process_clean_file(metadata_row, output_rows, metadata_chunked_rows):
             "chunk_id": f"{metadata_row["target_path"]}_{idx}",
             "chunk_index": idx,
             "timestamp": pd.Timestamp.now().isoformat(),
-            "processed_path": os.path.join(OUTPUT_CHUNK_PATH, f"{metadata_row["target_path"]}_{idx}.txt"),
+            "processed_path": f"{metadata_row["target_path"]}",
             "hash": hashlib.sha256(chunk_text.encode("utf-8")).hexdigest()
         })
 
