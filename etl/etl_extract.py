@@ -98,6 +98,7 @@ def run_extraction():
             output_path = os.path.join(PROCESSED_BASE, file_id + ".txt")
 
             if os.path.exists(output_path):
+                # TODO: check hash to see if re-extraction is needed
                 continue  # skip already processed
 
             try:

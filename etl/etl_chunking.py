@@ -75,19 +75,19 @@ def process_clean_file(metadata_row, output_rows, metadata_chunked_rows):
         token_count = count_tokens(chunk_text)
 
         output_rows.append({
-            "doc_id": metadata_row["target_path"],
-            "chunk_id": f"{metadata_row["target_path"]}_{idx}",
+            "doc_id": metadata_row["id"],
+            "chunk_id": f"{metadata_row["id"]}_{idx}",
             "chunk_index": idx,
             "tokens": token_count,
             "content": chunk_text
         })
 
         metadata_chunked_rows.append({
-            "doc_id": metadata_row["target_path"],
-            "chunk_id": f"{metadata_row["target_path"]}_{idx}",
+            "doc_id": metadata_row["id"],
+            "chunk_id": f"{metadata_row["id"]}_{idx}",
             "chunk_index": idx,
             "timestamp": pd.Timestamp.now().isoformat(),
-            "processed_path": f"{metadata_row["target_path"]}",
+            "doc_processed_path": f"{metadata_row["target_path"]}",
             "hash": hashlib.sha256(chunk_text.encode("utf-8")).hexdigest()
         })
 
@@ -111,10 +111,16 @@ def run_dispatcher():
     metadata_processed_rows = pd.read_csv(METADATA_PROCESSED_PATH)
 
     output_rows = []
-    metadata_chunked_rows = []
+    metadata_chunked_rows = [] if os.path.exists( os.path.join(METADATA_CHUNKED_PATH, "metadata_chunked.csv") ) == False else pd.read_csv(os.path.join(METADATA_CHUNKED_PATH, "metadata_chunked.csv")).to_dict(orient="records")
 
     # Process each row of the metadata (each row corresponds to a processed file)
     for _, row in metadata_processed_rows.iterrows():
+
+        if any(chunk["doc_id"] == row["id"] for chunk in metadata_chunked_rows):
+            # Already chunked
+            print(f"[CHUNK] Skipping {row["id"]}, already chunked.")
+            continue
+
         print(f"[CHUNK] Processing {row["id"]}")
         process_clean_file(row, output_rows, metadata_chunked_rows)
 
@@ -137,12 +143,12 @@ def run_dispatcher():
 
     # Write metadata
     with open(output_metadata, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["doc_id", "chunk_id", "chunk_index", "timestamp", "processed_path", "hash"])
+        writer = csv.DictWriter(f, fieldnames=["doc_id", "chunk_id", "chunk_index", "timestamp", "doc_processed_path", "hash"])
         writer.writeheader()
         writer.writerows(metadata_chunked_rows)
 
 
-    print(f"[CHUNK] Chunking completed. Output saved to {OUTPUT_CHUNK_PATH}")
+    print(f"[CHUNK] Chunking completed. Output saved to {OUTPUT_CHUNK_PATH}.\n[CHUNK] Number of chunks created: {len(output_rows)}")
 
 
 if __name__ == "__main__":
