@@ -130,19 +130,19 @@ def run_dispatcher():
     output_jsonl = os.path.join(OUTPUT_CHUNK_PATH, "chunks.jsonl")
 
     # Write CSV
-    with open(output_csv, "w", newline="", encoding="utf-8") as f:
+    with open(output_csv, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["doc_id", "chunk_id", "chunk_index", "tokens", "content"])
         writer.writeheader()
         writer.writerows(output_rows)
 
     # Write JSONL
-    with open(output_jsonl, "w", encoding="utf-8") as f:
+    with open(output_jsonl, "a", encoding="utf-8") as f:
         for row in output_rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
     # Write metadata
-    with open(output_metadata, "w", newline="", encoding="utf-8") as f:
+    with open(output_metadata, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["doc_id", "chunk_id", "chunk_index", "timestamp", "doc_processed_path", "hash"])
         writer.writeheader()
         writer.writerows(metadata_chunked_rows)
