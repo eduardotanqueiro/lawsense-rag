@@ -2,3 +2,5 @@ bs4
 pymupdf
 tiktoken
 pandas
+sentence-transformers
+numpy
