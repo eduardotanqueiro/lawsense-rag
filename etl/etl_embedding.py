@@ -172,7 +172,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Embed chunked documents with SentenceTransformers")
     
-    parser.add_argument("--model-name", type=str, default="all-MiniLM-L6-v2", help="SentenceTransformer model name")
+    parser.add_argument("--model-name", type=str, default="Amanda/bge_portuguese_v4", help="SentenceTransformer model name")
     parser.add_argument("--batch-size", type=int, default=64, help="Batch size for encoding")
     parser.add_argument("--device", type=str, default="cpu", help="Device to run model on (e.g., cpu, cuda:0)")
     
