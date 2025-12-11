@@ -8,3 +8,9 @@ data/chunked/
 data/embeddings/
 
 db/
+
+data/
+
+dev.Dockerfile
+
+TODO.md
