@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from api.routes import query, root, health
 
-from api.models.model_loader import load_model
+from api.models.emb_loader import load_emb_model
+from api.models.llm_loader import load_llm_agent
 from api.db.connection_loader import get_chroma_collection
 
 from contextlib import asynccontextmanager
@@ -11,7 +12,11 @@ from contextlib import asynccontextmanager
 async def startup_event(app: FastAPI):
 
     # Ensure embedding model is loaded at startup
-    load_model()
+    load_emb_model()
+
+    #
+    load_llm_agent()
+
 
     # Connection to the VectorDB
     get_chroma_collection()
