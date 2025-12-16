@@ -14,6 +14,8 @@ from chromadb.config import Settings
 EMBEDDINGS_NPY_PATH = os.path.join("data", "embeddings", "embeddings.npy")
 METADATA_EMBEDDINGS_PATH = os.path.join("data", "metadata_embeddings.csv")
 
+CHUNKS_CSV_PATH = os.path.join("data", "chunked", "chunks.csv")
+
 CHROMA_HOST = "localhost"
 CHROMA_PORT = 8001
 COLLECTION_NAME = "legal_chunks"
@@ -74,6 +76,15 @@ def create_db():
     new_rows_idx = df.index[~df["chunk_id"].isin(existing)].tolist()
     new_rows = df.iloc[new_rows_idx].reset_index(drop=True)
 
+    # For each row not yet in DB (i.e., each new chunk), get the chunk content
+    df_content = pd.read_csv(CHUNKS_CSV_PATH, dtype=str)
+    # print(df_content.columns)
+    # df_content = df_content.to_dict(orient="records")
+    df_content = df_content.loc[ new_rows_idx, ["content"] ].reset_index(drop=True)
+
+
+
+
     insert = True
     if not len(new_rows):
 
@@ -88,6 +99,7 @@ def create_db():
 
             batch = new_rows.iloc[start:end]
             batch_embeddings = embeddings[ new_rows_idx[start:end] ]
+            batch_content = df_content.iloc[start:end]
 
             # batch_embeddings = embeddings[ batch["embedding_index"].values.astype(int)]
 
@@ -103,7 +115,9 @@ def create_db():
                     "chunk_id": r["chunk_id"],
                     "chunk_hash": r["chunk_hash"],
                     "timestamp": r["timestamp"]
-                }, axis=1).tolist()
+                }, axis=1).tolist(),
+                
+                documents=batch_content["content"].tolist()
             )
 
         print("Insertion complete!")    
@@ -114,10 +128,11 @@ def create_db():
 
         model = SentenceTransformer("Amanda/bge_portuguese_v4")
         query_emb = model.encode(" \
-Notifique-se. \
-Lisboa, 2 de dezembro de 2025 \
-O Vice-Presidente do Supremo Tribunal de Justiça \
-Nuno Gonçalves")
+Lisboa, 02 de dezembro de 2025 \
+(texto processado e integralmente revisto pela relatora – artigo 94º, nº 2 do Código de Processo Penal) \
+Sandra Oliveira Pinto \
+Ester Pacheco dos Santos \
+João Grilo Amaral")
 
         res = collection.query(
             query_embeddings=[query_emb.tolist()],

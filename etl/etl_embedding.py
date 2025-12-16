@@ -61,6 +61,10 @@ def save_data(embeddings, metadata):
         all_emb = np.vstack([existing_emb, embeddings])
 
         np.save(EMBEDDINGS_NPY_PATH, all_emb)
+
+        del existing_emb
+        del all_emb
+
     else:
 
         print("No existing embeddings found. Creating new file.")
@@ -79,7 +83,7 @@ def save_data(embeddings, metadata):
 
 # 
 def generate_embeddings(model, chunks: list, batch_size: int, device: str):
-    emb = model.encode(chunks, show_progress_bar=False, convert_to_numpy=True, normalize_embeddings=False)
+    emb = model.encode(chunks, show_progress_bar=True, convert_to_numpy=True, normalize_embeddings=False)
     return emb
 
 
@@ -158,6 +162,7 @@ def create_embeddings(model_name: str, batch_size: int, device: str):
 
             # Save embedding and metadata
             save_data(curr_embeddings, to_embed_metadata)
+            del curr_embeddings
 
             # Clear variables to free memory
             to_embed = []
